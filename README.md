@@ -237,22 +237,6 @@ round(((cnt-lag(cnt) over (order by month))/lag(cnt) over (order by month))*100,
 from fraud_count;
 
 
-with t1 as (
-select month(transaction_date)as month ,count(1) as f_count from fraud_transaction
-where FraudFlag=1
-group by month(transaction_date)
-order by month(transaction_date)),
-t2 as
-( select month(transaction_date) as t_month,count(1) as total_count
-from fraud_transaction
-group by month(transaction_date) )
-select month,f_count,total_count,
- round((f_count/total_count)*100,2) as percentage,
- round((((f_count)-lag(f_count)over(order by month)) /lag(f_count)over(order by month))*100,2) as fraud_per
-from t1 
-join t2 on t1.month=t2.t_month;
-
-
 -- calculate total amount,total amount lost due to fraud per location
 SELECT 
     location,
@@ -405,47 +389,6 @@ FROM
 
     
  
--- customer report (fradulent risk  per customer )
-with customer_report as 
-( SELECT 
-    customerid, 
-    count(transactionid) AS totaltransaction,
-    round(sum(amount),2) as Totalamount,
-    count(case when fraudflag=1 then 1 end) as Fraudcustomer,
-    sum(case when fraudflag=1 then 1 end) as FraudTransation,
-    round(count(case when fraudflag=1 then 1 end)*100/count(transactionid),1) as FraudPercentage,
-    round(sum(case when fraudflag=1 then amount else 0 end),2) as FraudAmount    
-FROM
-    fraud_transaction
-	GROUP BY customerid
-  order by totaltransaction desc
-)
-SELECT 
-    customerid,
-    totaltransaction,
-    FraudTransation,
-    FraudPercentage,
-    Totalamount,
-    FraudAmount,
-    round(
-        (0.5*(FraudTransation/TotalTransaction))+
-        (0.3*(FraudAmount/Totalamount))+
-        (0.2*(FraudTransation/TotalTransaction)),4)*100 as risk_score,
-case when round(
-        (0.5*(FraudTransation/TotalTransaction))+
-        (0.3*(FraudAmount/Totalamount))+
-        (0.2*(FraudTransation/TotalTransaction)),4)*100 >40 then 'High Risk'
-	 when round(
-        (0.5*(FraudTransation/TotalTransaction))+
-        (0.3*(FraudAmount/Totalamount))+
-        (0.2*(FraudTransation/TotalTransaction)),4)*100>20 then 'Medium Risk'
-else 'Low Risk' end as risk_status
-FROM
-    customer_report
-    where FraudTransation is not null
-    order by  risk_score desc
-    limit 10;
-
 
 
 
